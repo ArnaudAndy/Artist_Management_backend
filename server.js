@@ -15,6 +15,7 @@ server.use(cors());
 //     allowedHeaders: 'Content-Type, Authorization',
 // };
 // server.use(cors(corsOptions));
+//some changes
 
 server.use(bodyParser.json());
 
