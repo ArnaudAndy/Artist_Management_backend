@@ -20,10 +20,10 @@ server.use(bodyParser.json());
 
 // Establish the database connection
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'ajy2yv00',
-    database: 'ArtistManagement', // Adjust database name
+    host: 'burgamjq2x0ycsadlhmj-mysql.services.clever-cloud.com',
+    user: 'uikmbpwbuz6gzjfa',
+    password: 'jZEZKgQqlMeH8LozCzEH',
+    database: 'burgamjq2x0ycsadlhmj', // Adjust database name
 });
 
 db.connect(function (error) {
