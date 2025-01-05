@@ -1,33 +1,40 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql');
-const cors = require('cors'); // Import the CORS package
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 
 const server = express();
 
 // Use CORS middleware to allow requests from your Angular frontend
 server.use(cors());
-
-// If you want to allow only specific origins, you can configure CORS like this:
-// const corsOptions = {
-//     origin: 'http://localhost:4200', // Replace with your Angular frontend URL
-//     methods: 'GET, POST, PUT, DELETE',
-//     allowedHeaders: 'Content-Type, Authorization',
-// };
-// server.use(cors(corsOptions));
-//some changes
-
 server.use(bodyParser.json());
+
+// Configure storage for uploaded files
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/'); // Directory where files will be saved
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+    },
+});
+
+const upload = multer({ storage });
+
+// Serve uploaded files statically
+server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Establish the database connection
 const db = mysql.createConnection({
     host: 'burgamjq2x0ycsadlhmj-mysql.services.clever-cloud.com',
     user: 'uikmbpwbuz6gzjfa',
     password: 'jZEZKgQqlMeH8LozCzEH',
-    database: 'burgamjq2x0ycsadlhmj', // Adjust database name
+    database: 'burgamjq2x0ycsadlhmj',
 });
 
-db.connect(function (error) {
+db.connect((error) => {
     if (error) {
         console.log('Error Connecting to DB');
     } else {
@@ -36,12 +43,21 @@ db.connect(function (error) {
 });
 
 // Establish the Port
-server.listen(8085, function check(error) {
+server.listen(8085, (error) => {
     if (error) {
         console.log('Error starting server');
     } else {
         console.log('Server started on port 8085');
     }
+});
+
+// Endpoint to upload an image
+server.post('/api/upload', upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send({ status: false, message: 'No file uploaded' });
+    }
+    const imageUrl = `/uploads/${req.file.filename}`;
+    res.status(200).send({ status: true, imageUrl });
 });
 
 // Create an Artist
@@ -96,7 +112,6 @@ server.get('/api/artists/:id', (req, res) => {
 });
 
 // Update an Artist
-// Update an Artist
 server.put('/api/artists/:id', (req, res) => {
     const artistId = req.params.id;
     const details = {
@@ -107,20 +122,18 @@ server.put('/api/artists/:id', (req, res) => {
         social_links: req.body.social_links,
         record_label: req.body.record_label,
         publishing_house: req.body.publishing_house,
-        career_start_date: req.body.career_start_date, // Ensure this is correctly handled
+        career_start_date: req.body.career_start_date,
     };
 
     const sql = 'UPDATE Artists SET ? WHERE artist_id = ?';
     db.query(sql, [details, artistId], (error) => {
         if (error) {
-            console.error('Error during artist update:', error);
             res.send({ status: false, message: 'Artist update failed' });
         } else {
             res.send({ status: true, message: 'Artist updated successfully' });
         }
     });
 });
-
 
 // Delete an Artist
 server.delete('/api/artists/:id', (req, res) => {
@@ -151,7 +164,6 @@ server.post('/api/artists/:id/rate', (req, res) => {
                 if (error) {
                     res.send({ status: false, message: 'Rating failed' });
                 } else {
-                    // Calculate average rating
                     const avgRatingQuery = 'SELECT AVG(rating_value) AS avg_rating FROM Ratings WHERE artist_id = ?';
                     db.query(avgRatingQuery, [artistId], (error, result) => {
                         if (error) {
