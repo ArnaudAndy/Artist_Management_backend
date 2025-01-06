@@ -60,24 +60,54 @@ server.post('/api/upload', upload.single('image'), (req, res) => {
     res.status(200).send({ status: true, imageUrl });
 });
 
-// Create an Artist
-server.post('/api/artists', (req, res) => {
-    const details = {
-        image_url: req.body.image_url,
-        name: req.body.name,
-        stage_name: req.body.stage_name,
-        albums_count: req.body.albums_count,
-        social_links: req.body.social_links,
-        record_label: req.body.record_label,
-        publishing_house: req.body.publishing_house,
-        career_start_date: req.body.career_start_date,
-    };
-    const sql = 'INSERT INTO Artists SET ?';
-    db.query(sql, details, (error) => {
+// Check if Artist with same name or stage name exists
+server.get('/api/artists/checkDuplicate', (req, res) => {
+    const { name, stage_name } = req.query;
+
+    const checkDuplicateQuery = 'SELECT * FROM Artists WHERE name = ? OR stage_name = ?';
+    db.query(checkDuplicateQuery, [name, stage_name], (error, result) => {
         if (error) {
-            res.send({ status: false, message: 'Artist creation failed' });
+            res.send({ status: false, message: 'Error checking for duplicate artist' });
         } else {
-            res.send({ status: true, message: 'Artist created successfully' });
+            if (result.length > 0) {
+                res.send({ status: false, message: 'An artist with the same name or stage name already exists' });
+            } else {
+                res.send({ status: true });
+            }
+        }
+    });
+});
+
+// Create an Artist with duplicate check
+server.post('/api/artists', (req, res) => {
+    const { name, stage_name, albums_count, social_links, record_label, publishing_house, career_start_date, image_url } = req.body;
+
+    // Check if an artist with the same name or stage name already exists
+    const checkDuplicateQuery = 'SELECT * FROM Artists WHERE name = ? OR stage_name = ?';
+    db.query(checkDuplicateQuery, [name, stage_name], (error, result) => {
+        if (result.length > 0) {
+            // If artist already exists
+            res.send({ status: false, message: 'An artist with the same name or stage name already exists' });
+        } else {
+            // Proceed with inserting new artist
+            const details = {
+                image_url,
+                name,
+                stage_name,
+                albums_count,
+                social_links,
+                record_label,
+                publishing_house,
+                career_start_date,
+            };
+            const sql = 'INSERT INTO Artists SET ?';
+            db.query(sql, details, (error) => {
+                if (error) {
+                    res.send({ status: false, message: 'Artist creation failed' });
+                } else {
+                    res.send({ status: true, message: 'Artist created successfully' });
+                }
+            });
         }
     });
 });
@@ -182,6 +212,55 @@ server.post('/api/artists/:id/rate', (req, res) => {
                     });
                 }
             });
+        }
+    });
+});
+
+// Search Artists based on multiple attributes
+server.get('/api/artists/search', (req, res) => {
+    const { name, stage_name, albums_count, record_label, publishing_house, career_start_date } = req.query;
+
+    // Start building the query dynamically
+    let query = 'SELECT * FROM Artists WHERE 1=1';
+    let params = [];
+
+    // Add conditions for each field if they are provided in the query
+    if (name) {
+        query += ' AND name LIKE ?';
+        params.push(`%${name}%`);
+    }
+
+    if (stage_name) {
+        query += ' AND stage_name LIKE ?';
+        params.push(`%${stage_name}%`);
+    }
+
+    if (albums_count) {
+        query += ' AND albums_count = ?';
+        params.push(albums_count);
+    }
+
+    if (record_label) {
+        query += ' AND record_label LIKE ?';
+        params.push(`%${record_label}%`);
+    }
+
+    if (publishing_house) {
+        query += ' AND publishing_house LIKE ?';
+        params.push(`%${publishing_house}%`);
+    }
+
+    if (career_start_date) {
+        query += ' AND career_start_date = ?';
+        params.push(career_start_date);
+    }
+
+    // Execute the query with the dynamically built conditions
+    db.query(query, params, (error, result) => {
+        if (error) {
+            res.send({ status: false, message: 'Error fetching search results' });
+        } else {
+            res.send({ status: true, data: result });
         }
     });
 });
